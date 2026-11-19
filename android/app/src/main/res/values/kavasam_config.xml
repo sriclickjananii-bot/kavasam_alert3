@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- EDIT: your Cloud Functions base URL (no trailing slash).
+         Region is asia-south1 (Mumbai). Replace YOUR_PROJECT_ID. -->
+    <string name="kavasam_functions_base_url" translatable="false">https://asia-south1-YOUR_PROJECT_ID.cloudfunctions.net</string>
+</resources>

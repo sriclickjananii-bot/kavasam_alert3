@@ -1,0 +1,78 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ---- SOS alerts: any signed-in phone may raise one; nobody may edit or delete.
+    // (A second phone reporting the same SOS is rejected = automatic de-duplication.)
+    match /alerts/{alertId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null
+        && request.resource.data.keys().hasOnly(['key','seq','name','lat','lon','raisedBy','createdAt'])
+        && request.resource.data.raisedBy == request.auth.uid
+        && request.resource.data.lat is number
+        && request.resource.data.lon is number
+        && request.resource.data.name is string
+        && request.resource.data.name.size() <= 40
+        && request.resource.data.createdAt == request.time;
+
+      // Answers to an alert (read by every phone that tracks it):
+      //   <uid>_ack     a phone was alerted (ring = 1 for 0-5 km, 2 for 5-10 km)
+      //   <uid>_contact an emergency contact responded (stops the 10 km widening)
+      match /responses/{responseId} {
+        allow read: if request.auth != null;
+        allow create: if request.auth != null
+          && (responseId == request.auth.uid + '_ack' || responseId == request.auth.uid + '_contact')
+          && request.resource.data.keys().hasOnly(['type','ring','at'])
+          && request.resource.data.type in ['ack','contact']
+          && request.resource.data.at == request.time;
+      }
+    }
+
+    // ---- One-time invite codes (parent enters the code). Codes can be fetched
+    // one at a time but not listed.
+    match /invites/{code} {
+      allow get: if request.auth != null;
+      allow create: if request.auth != null
+        && request.resource.data.ownerUid == request.auth.uid
+        && request.resource.data.used == false;
+      allow update: if request.auth != null
+        && resource.data.used == false
+        && resource.data.ownerUid != request.auth.uid
+        && resource.data.expiresAt > request.time
+        && request.resource.data.used == true
+        && request.resource.data.usedBy == request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['used','usedBy']);
+    }
+
+    // ---- Live location. Doc id = owner's uid.
+    match /sharing_sessions/{ownerUid} {
+      allow read: if request.auth != null
+        && (request.auth.uid == ownerUid
+            || exists(/databases/$(database)/documents/sharing_sessions/$(ownerUid)/watchers/$(request.auth.uid)));
+      allow create, update: if request.auth != null && request.auth.uid == ownerUid;
+
+      // who may watch me: created by the parent after using a valid invite
+      match /watchers/{watcherUid} {
+        allow read: if request.auth != null
+          && (request.auth.uid == ownerUid || request.auth.uid == watcherUid);
+        allow create: if request.auth != null
+          && request.auth.uid == watcherUid
+          && get(/databases/$(database)/documents/invites/$(request.resource.data.inviteCode)).data.usedBy == request.auth.uid
+          && get(/databases/$(database)/documents/invites/$(request.resource.data.inviteCode)).data.ownerUid == ownerUid;
+        allow delete: if request.auth != null
+          && (request.auth.uid == ownerUid || request.auth.uid == watcherUid);
+      }
+    }
+
+    // ---- "People I am watching" (parent's own list; owner may remove an entry)
+    match /users/{uid}/watching/{ownerUid} {
+      allow read, create: if request.auth != null && request.auth.uid == uid;
+      allow delete: if request.auth != null
+        && (request.auth.uid == uid || request.auth.uid == ownerUid);
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

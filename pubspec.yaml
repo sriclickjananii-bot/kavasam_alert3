@@ -1,0 +1,83 @@
+name: kavasam_alert
+description: "Kavasam Alert — personal SOS device companion app (BLE + silent SMS + auto-call, live location sharing)."
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.6
+
+  # BLE scanning to receive SOS packets from the ESP32-C3 device
+  flutter_blue_plus: ^1.32.12
+
+  # Permissions (location, bluetooth, sms, phone, notifications)
+  permission_handler: ^11.3.1
+
+  # Device GPS location (for the owner's own live-share feature)
+  geolocator: ^12.0.0
+
+  # Opening the phone dialer as a fallback, and maps links
+  url_launcher: ^6.3.0
+
+  # Direct silent SMS sending where the SEND_SMS permission is granted
+  # (Android only — see README for Play Store policy notes). Sent via a
+  # native MethodChannel (see lib/services/native_sms.dart) using
+  # Android's SmsManager, instead of the discontinued `telephony` package.
+
+  # Direct phone call to Police (100) with no dialer screen shown,
+  # when CALL_PHONE permission is granted. Falls back to the dialer
+  # (via url_launcher's tel: scheme) if permission is denied.
+  flutter_phone_direct_caller: ^2.1.1
+
+  # Full-screen, highest-priority local notification for the SOS popup
+  # (shows over other apps / the lock screen with a red banner).
+  flutter_local_notifications: ^17.2.2
+
+  # Looping siren sound while the SOS alert screen is open
+  audioplayers: ^6.1.0
+
+  # Local persistence: emergency contacts, victim profile, paired device id
+  shared_preferences: ^2.2.3
+
+  # Contact picker for adding emergency contacts from the phone's address book
+  flutter_contacts: ^1.1.9+2
+
+  # JSON models
+  json_annotation: ^4.9.0
+
+  # Backend for "always visible" live location sharing with accepted
+  # emergency contacts. Requires you to create your own free Firebase
+  # project and drop in google-services.json / GoogleService-Info.plist
+  # — see README.md "Firebase setup" section. The app will build without
+  # this being configured, but live location sharing won't work until you do.
+  firebase_core: ^3.6.0
+  cloud_firestore: ^5.4.0
+  # Anonymous sign-in gives every phone a stable uid for the Firestore rules.
+  firebase_auth: ^5.3.0
+
+  # Live map for parents (OpenStreetMap tiles - no API key needed)
+  flutter_map: ^7.0.2
+  latlong2: ^0.9.1
+
+  # Unique invite codes
+  uuid: ^4.4.2
+
+  # Short evidence video from the phone camera when SOS is pressed in the app
+  camera: ^0.11.0+2
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+  build_runner: ^2.4.11
+  json_serializable: ^6.8.0
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/audio/sos_alarm.wav
+    - assets/images/sos_button.png
