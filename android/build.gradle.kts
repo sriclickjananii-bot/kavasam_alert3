@@ -19,6 +19,16 @@ subprojects {
     project.evaluationDependsOn(":app")
 }
 
+// Fix for camera_android_camerax: "class file for
+// androidx.concurrent.futures.CallbackToFutureAdapter not found"
+subprojects {
+    if (project.name == "camera_android_camerax") {
+        project.plugins.withId("com.android.library") {
+            project.dependencies.add("implementation", "androidx.concurrent:concurrent-futures:1.2.0")
+        }
+    }
+}
+
 tasks.register<Delete>("clean") {
     delete(rootProject.layout.buildDirectory)
 }

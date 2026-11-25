@@ -2,8 +2,12 @@ plugins {
     id("com.android.application")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
-    // Firebase: reads android/app/google-services.json
-    id("com.google.gms.google-services")
+}
+
+// Firebase: only applied when android/app/google-services.json exists,
+// so the app still builds (without live Firebase features) if it is missing.
+if (file("google-services.json").exists()) {
+    apply(plugin = "com.google.gms.google-services")
 }
 
 android {

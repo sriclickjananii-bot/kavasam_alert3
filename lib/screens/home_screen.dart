@@ -37,22 +37,13 @@ class HomeScreen extends StatelessWidget {
               icon: const Icon(Icons.notifications, size: 24),
               onPressed: () {},
             ),
-            PopupMenuButton<String>(
-              icon: const Icon(Icons.more_vert, size: 24),
-              onSelected: (v) {
-                if (v == 'settings') {
-                  Navigator.push(context,
-                      MaterialPageRoute(builder: (_) => const ProfileSettingsScreen()));
-                } else if (v == 'contacts') {
-                  Navigator.push(context,
-                      MaterialPageRoute(builder: (_) => const ContactsScreen()));
-                }
+            IconButton(
+              icon: const Icon(Icons.settings, size: 24),
+              tooltip: tr('Settings'),
+              onPressed: () {
+                Navigator.push(context,
+                    MaterialPageRoute(builder: (_) => const ProfileSettingsScreen()));
               },
-              itemBuilder: (_) => [
-                PopupMenuItem(value: 'settings', child: Text(tr('Settings'))),
-                PopupMenuItem(
-                    value: 'contacts', child: Text(tr('Emergency Contacts'))),
-              ],
             ),
           ],
         ),

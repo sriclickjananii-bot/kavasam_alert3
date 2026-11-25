@@ -17,12 +17,13 @@ class LocationSharingTab extends StatefulWidget {
 }
 
 class _LocationSharingTabState extends State<LocationSharingTab> {
-  final _svc = LocationShareService.instance;
+  LocationShareService get _svc => LocationShareService.instance;
   final _storage = StorageService();
 
   bool _alwaysShare = false;
   bool _ready = false;
   String? _error;
+  bool _fbOk = true;
   String? _lastInviteCode;
   bool _busy = false;
   Map<String, String> _labels = {}; // names THIS user saved for people (by uid)
@@ -34,25 +35,33 @@ class _LocationSharingTabState extends State<LocationSharingTab> {
   }
 
   Future<void> _load() async {
+    final always = await _storage.getAlwaysShareLocation();
+    final labels = await _storage.getWatchLabels();
+    var ok = true;
     try {
       await _svc.ensureSignedIn();
-      final always = await _storage.getAlwaysShareLocation();
-      final labels = await _storage.getWatchLabels();
-      setState(() {
-        _labels = labels;
-        _alwaysShare = always;
-        _ready = true;
-      });
     } catch (e) {
-      setState(() => _error =
-          'Firebase is not set up yet (or no internet).\nFollow FIREBASE_SETUP.md.\n\n$e');
+      ok = false;
+      _error = 'Firebase is not set up yet (or no internet).\n'
+          'Live location sharing will work after adding google-services.json (see FIREBASE_SETUP.md).';
     }
+    if (!mounted) return;
+    setState(() {
+      _labels = labels;
+      _alwaysShare = ok ? always : false;
+      _fbOk = ok;
+      _ready = true;
+    });
   }
 
   void _snack(String m) =>
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(m)));
 
   Future<void> _toggleAlwaysShare(bool value) async {
+    if (!_fbOk) {
+      _snack('Firebase is not set up yet.');
+      return;
+    }
     if (value) {
       final ok = await _svc.startSharing();
       if (!ok) {
@@ -67,6 +76,10 @@ class _LocationSharingTabState extends State<LocationSharingTab> {
   }
 
   Future<void> _createInvite() async {
+    if (!_fbOk) {
+      _snack('Firebase is not set up yet.');
+      return;
+    }
     // Ask who the code is for, so that person shows up under THAT name.
     final forCtrl = TextEditingController();
     final go = await showDialog<bool>(
@@ -200,12 +213,6 @@ class _LocationSharingTabState extends State<LocationSharingTab> {
 
   @override
   Widget build(BuildContext context) {
-    if (_error != null) {
-      return KaavalBackground(
-        child: Center(
-            child: Padding(padding: const EdgeInsets.all(24), child: Text(_error!))),
-      );
-    }
     if (!_ready) {
       return const KaavalBackground(
           child: Center(child: CircularProgressIndicator()));
@@ -217,6 +224,17 @@ class _LocationSharingTabState extends State<LocationSharingTab> {
       child: ListView(
         padding: const EdgeInsets.fromLTRB(14, 12, 14, 16),
         children: [
+          if (!_fbOk && _error != null) ...[
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFF3CD),
+                border: Border.all(color: const Color(0xFFE0B040)),
+              ),
+              child: Text(_error!, style: const TextStyle(fontSize: 12.5)),
+            ),
+            const SizedBox(height: 12),
+          ],
           Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
@@ -344,7 +362,7 @@ class _LocationSharingTabState extends State<LocationSharingTab> {
           Text(tr('Who can see me'), style: h),
           const SizedBox(height: 6),
           StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-            stream: _svc.watchers(),
+            stream: _fbOk ? _svc.watchers() : null,
             builder: (c, s) {
               final docs = s.data?.docs ?? [];
               if (docs.isEmpty) return Text(tr('Nobody yet.'), style: small);
@@ -390,7 +408,7 @@ class _LocationSharingTabState extends State<LocationSharingTab> {
           Text(tr('People I am watching'), style: h),
           const SizedBox(height: 6),
           StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-            stream: _svc.watching(),
+            stream: _fbOk ? _svc.watching() : null,
             builder: (c, s) {
               final docs = s.data?.docs ?? [];
               if (docs.isEmpty) return Text(tr('Nobody yet.'), style: small);

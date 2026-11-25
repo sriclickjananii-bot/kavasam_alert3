@@ -24,12 +24,18 @@ class BleScanService {
     if (_scanning) return;
     _scanning = true;
 
-    await FlutterBluePlus.startScan(
-      timeout: const Duration(days: 1), // effectively continuous; stop() ends it
-      androidUsesFineLocation: true,
-      continuousUpdates: true, // needed so heartbeat -> SOS changes from the same device are delivered
-      androidScanMode: AndroidScanMode.lowLatency,
-    );
+    try {
+      await FlutterBluePlus.startScan(
+        timeout: const Duration(days: 1), // effectively continuous; stop() ends it
+        androidUsesFineLocation: true,
+        continuousUpdates: true, // needed so heartbeat -> SOS changes from the same device are delivered
+        androidScanMode: AndroidScanMode.lowLatency,
+      );
+    } catch (_) {
+      // e.g. Bluetooth is switched off: don't crash; allow a later retry.
+      _scanning = false;
+      return;
+    }
 
     _subscription = FlutterBluePlus.scanResults.listen((results) {
       for (final r in results) {

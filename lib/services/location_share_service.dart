@@ -26,8 +26,10 @@ class LocationShareService {
   LocationShareService._();
   static final LocationShareService instance = LocationShareService._();
 
-  final _auth = FirebaseAuth.instance;
-  final _db = FirebaseFirestore.instance;
+  // Lazy getters: touching Firebase only when needed, so the screen can still
+  // open (and show a message) when Firebase is not configured.
+  FirebaseAuth get _auth => FirebaseAuth.instance;
+  FirebaseFirestore get _db => FirebaseFirestore.instance;
   final _storage = StorageService();
 
   StreamSubscription<Position>? _sub;
