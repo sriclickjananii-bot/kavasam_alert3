@@ -52,7 +52,8 @@ import kotlin.math.roundToInt
 /** "Someone nearby needs help" as delivered by the cloud push. */
 data class ResponderAlert(
     val name: String, val lat: Double, val lon: Double,
-    val distM: Int, val key: String, val seq: Int
+    val distM: Int, val key: String, val seq: Int,
+    val atRegistered: Boolean = false   // true = near the user's registered safe location
 )
 
 class BleWatchService : Service() {
@@ -120,7 +121,8 @@ class BleWatchService : Service() {
             } else {
                 startForeground(ID_WATCH, n)
             }
-            startScan()
+            // Bluetooth trouble must never stop the safe-zone alert listener below.
+            try { startScan() } catch (_: Exception) {}
             setupResponder()
             queuedResponder?.let { q -> queuedResponder = null; onResponderSos(q) }
         } catch (e: Exception) {
@@ -444,7 +446,7 @@ class BleWatchService : Service() {
     fun onResponderSos(a: ResponderAlert) {
         val origin = a.key.toIntOrNull(16) ?: origin16(a.key)
         if (seenBefore(origin, a.seq)) return       // already alerted (BLE or earlier push)
-        onNearbySos(a.name, a.lat, a.lon, a.distM, origin, a.seq, 0, "cloud")
+        onNearbySos(a.name, a.lat, a.lon, a.distM, origin, a.seq, 0, "cloud", a.atRegistered)
     }
 
     /** BLE relay packet (type 0x03) from another phone: [1]=hop [2..3]=origin [4]=seq [5..8]=lat [9..12]=lon [13..]=name */
@@ -463,7 +465,8 @@ class BleWatchService : Service() {
 
     /** Common path for a nearby (non-victim) phone: alarm + screen + keep the chain going. */
     private fun onNearbySos(name: String, lat: Double, lon: Double, distIn: Int,
-                            origin: Int, seq: Int, hop: Int, via: String) {
+                            origin: Int, seq: Int, hop: Int, via: String,
+                            atRegistered: Boolean = false) {
         val pm = getSystemService(Context.POWER_SERVICE) as PowerManager
         val wl = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "kavasam:nearby")
         wl.acquire(20_000)
@@ -479,13 +482,15 @@ class BleWatchService : Service() {
             val who = if (name.isEmpty()) "Someone" else name
             if (player == null) {
                 startAlarm()
-                startVoice(if (distM >= 0) "$who needs help, about $distM metres from you."
+                startVoice(if (distM >= 0 && atRegistered) "$who needs help, about $distM metres from your registered location."
+                           else if (distM >= 0) "$who needs help, about $distM metres from you."
                            else "$who needs help nearby.")
             }
             pendingSos = hashMapOf<String, Any?>(
                 "name" to name, "lat" to lat, "lon" to lon, "hasLocation" to true,
                 "numbers" to ArrayList<String>(), "sent" to ArrayList<String>(),
-                "failed" to ArrayList<String>(), "fromResponder" to true, "distance" to distM
+                "failed" to ArrayList<String>(), "fromResponder" to true, "distance" to distM,
+                "atRegistered" to atRegistered
             )
             showAlertAndLaunch(name)
             // keep the mesh going: BLE re-broadcast, and tell the cloud if we are online
@@ -584,12 +589,14 @@ class BleWatchService : Service() {
 
     /** Opt-in: keep the cloud updated with this phone's approximate position. */
     private fun setupResponder() {
-        if (!ResponderNet.enabled(this)) {
+        val live = ResponderNet.enabled(this)
+        val home = ResponderNet.registeredOn(this)      // registered safe location (works with GPS off)
+        if (!live && !home) {
             stopLocationUpdates()
             ResponderNet.stopListening()
             return
         }
-        startLocationUpdates()                 // keeps the phone's last-known position fresh
+        if (live) startLocationUpdates() else stopLocationUpdates()   // keeps last-known position fresh
         ResponderNet.startListening(this)      // Firestore listener for nearby alerts
     }
 

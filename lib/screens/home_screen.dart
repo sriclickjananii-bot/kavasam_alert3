@@ -6,6 +6,7 @@ import '../widgets/kaaval_widgets.dart';
 import 'contacts_screen.dart';
 import 'device_pairing_screen.dart';
 import 'profile_settings_screen.dart';
+import 'register_location_screen.dart';
 import 'tabs/emergency_tab.dart';
 import 'tabs/location_sharing_tab.dart';
 import 'tabs/other_services_tab.dart';
@@ -143,6 +144,8 @@ class _AppDrawer extends StatelessWidget {
           ),
           item(Icons.manage_accounts_outlined, 'Edit Profile',
               () => _go(context, const ProfileSettingsScreen())),
+          item(Icons.add_location_alt_outlined, 'My Safe Location',
+              () => _go(context, const RegisterLocationScreen())),
           item(Icons.bluetooth, 'Pair SOS Device',
               () => _go(context, const DevicePairingScreen())),
           item(Icons.contacts_outlined, 'Emergency Contacts',

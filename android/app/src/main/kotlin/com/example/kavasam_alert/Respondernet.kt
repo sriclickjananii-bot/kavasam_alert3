@@ -47,6 +47,21 @@ object ResponderNet {
     /** Opt-in switch (Profile & Language screen). */
     fun enabled(c: Context) = flutterPrefs(c).getBoolean("flutter.responder_enabled", false)
 
+    /**
+     * Registered "safe location" (saved from the app's first-run screen / Safe Zone card).
+     * Stored as text by Flutter so no number-type problems. Used as a SECOND layer: alerts
+     * near this place reach the phone even when its own location (GPS) is switched off.
+     */
+    fun registered(c: Context): Pair<Double, Double>? {
+        val p = flutterPrefs(c)
+        val la = p.getString("flutter.reg_lat", null)?.toDoubleOrNull() ?: return null
+        val lo = p.getString("flutter.reg_lon", null)?.toDoubleOrNull() ?: return null
+        return Pair(la, lo)
+    }
+
+    fun registeredOn(c: Context): Boolean =
+        flutterPrefs(c).getBoolean("flutter.reg_alerts_enabled", false) && registered(c) != null
+
     private val handler = Handler(Looper.getMainLooper())
     private var registration: ListenerRegistration? = null
     private var starting = false
@@ -205,9 +220,23 @@ object ResponderNet {
             val age = maxOf(0L, now - t.createdMs)
             if (age > LIFETIME_MS) { t.reg?.remove(); it.remove(); continue }
             if (t.fired) continue
-            val me = svc.lastKnownLocation() ?: continue
+            // Layer 1: this phone's own last-known position (needs "Help people near me").
+            // Layer 2: the registered safe location - works even if phone location is OFF.
+            val live = if (enabled(svc)) svc.lastKnownLocation() else null
+            val home = if (registeredOn(svc)) registered(svc) else null
+            if (live == null && home == null) continue
             val r = FloatArray(1)
-            android.location.Location.distanceBetween(me.latitude, me.longitude, t.lat, t.lon, r)
+            var best = Float.MAX_VALUE
+            var atRegistered = false
+            if (live != null) {
+                android.location.Location.distanceBetween(live.latitude, live.longitude, t.lat, t.lon, r)
+                best = r[0]
+            }
+            if (home != null) {
+                android.location.Location.distanceBetween(home.first, home.second, t.lat, t.lon, r)
+                if (r[0] < best) { best = r[0]; atRegistered = true }
+            }
+            r[0] = best
             val ring = when {
                 r[0] <= RING1_M -> 1
                 r[0] <= RING2_M && ring2Open(t, age) -> 2
@@ -216,7 +245,7 @@ object ResponderNet {
             if (ring == 0) continue
             t.fired = true
             sendAck(t, ring)
-            svc.onResponderSos(ResponderAlert(t.name, t.lat, t.lon, r[0].toInt(), t.key, t.seq))
+            svc.onResponderSos(ResponderAlert(t.name, t.lat, t.lon, r[0].toInt(), t.key, t.seq, atRegistered))
         }
     }
 }

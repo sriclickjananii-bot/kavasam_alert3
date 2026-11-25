@@ -8,6 +8,7 @@ import '../../services/app_lang.dart';
 import '../../services/location_share_service.dart';
 import '../../services/storage_service.dart';
 import '../live_map_screen.dart';
+import '../../widgets/safe_zone_card.dart';
 
 class LocationSharingTab extends StatefulWidget {
   const LocationSharingTab({super.key});
@@ -235,6 +236,8 @@ class _LocationSharingTabState extends State<LocationSharingTab> {
             ),
             const SizedBox(height: 12),
           ],
+          const SafeZoneCard(),
+          const SizedBox(height: 14),
           Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [

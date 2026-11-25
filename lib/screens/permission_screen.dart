@@ -5,6 +5,7 @@ import '../services/storage_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/kaaval_widgets.dart';
 import 'home_screen.dart';
+import 'register_location_screen.dart';
 
 /// Shows the "PERMISSION REQUIRED" explainer once on first launch, then
 /// the normal home screen. The real permission requests are still made by
@@ -18,15 +19,30 @@ class StartupGate extends StatefulWidget {
 }
 
 class _StartupGateState extends State<StartupGate> {
-  late final Future<bool> _seen = StorageService().getPermissionIntroSeen();
+  // 0 = show permission intro, 1 = ask to register the safe location, 2 = home
+  late final Future<int> _step = _decide();
+
+  Future<int> _decide() async {
+    final s = StorageService();
+    if (!await s.getPermissionIntroSeen()) return 0;
+    if (!await s.getRegPromptDone()) return 1;
+    return 2;
+  }
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<bool>(
-      future: _seen,
+    return FutureBuilder<int>(
+      future: _step,
       builder: (context, snap) {
         if (!snap.hasData) return const Scaffold(body: SizedBox.shrink());
-        return snap.data! ? const HomeScreen() : const PermissionRequiredScreen();
+        switch (snap.data!) {
+          case 0:
+            return const PermissionRequiredScreen();
+          case 1:
+            return const RegisterLocationScreen(firstRun: true);
+          default:
+            return const HomeScreen();
+        }
       },
     );
   }
@@ -118,10 +134,16 @@ class _PermissionRequiredScreenState extends State<PermissionRequiredScreen> {
   }
 
   Future<void> _proceed() async {
-    await StorageService().setPermissionIntroSeen(true);
+    final s = StorageService();
+    await s.setPermissionIntroSeen(true);
+    final registerNext = !await s.getRegPromptDone();
     if (!mounted) return;
     Navigator.of(context).pushReplacement(
-      MaterialPageRoute(builder: (_) => const HomeScreen()),
+      MaterialPageRoute(
+        builder: (_) => registerNext
+            ? const RegisterLocationScreen(firstRun: true)
+            : const HomeScreen(),
+      ),
     );
   }
 

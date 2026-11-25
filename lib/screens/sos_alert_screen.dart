@@ -45,6 +45,10 @@ class SosAlertScreen extends StatefulWidget {
   /// tell the responder network that an emergency contact is acting.
   final String? alertRef;
 
+  /// For 'nearby' alerts: true when the alert is near the user's REGISTERED safe
+  /// location (second layer, works even if this phone's location is off).
+  final bool nearRegistered;
+
   const SosAlertScreen({
     super.key,
     required this.packet,
@@ -53,6 +57,7 @@ class SosAlertScreen extends StatefulWidget {
     this.victimName,
     this.distanceM,
     this.alertRef,
+    this.nearRegistered = false,
   });
 
   @override
@@ -436,9 +441,13 @@ class _SosAlertScreenState extends State<SosAlertScreen> {
                               ? tr('SOS signal received from your device')
                               : widget.source == 'sms'
                                   ? tr('SOS received by SMS — someone you know needs help')
-                                  : ((widget.distanceM ?? -1) >= 0
-                                      ? '${tr('You are one of the nearest people — about')} ${widget.distanceM} ${tr('m away')}'
-                                      : tr('You are one of the nearest people to the victim')),
+                                  : (widget.nearRegistered
+                                      ? ((widget.distanceM ?? -1) >= 0
+                                          ? '${tr('SOS near your registered safe location — about')} ${widget.distanceM} ${tr('m away')}'
+                                          : tr('SOS near your registered safe location'))
+                                      : ((widget.distanceM ?? -1) >= 0
+                                          ? '${tr('You are one of the nearest people — about')} ${widget.distanceM} ${tr('m away')}'
+                                          : tr('You are one of the nearest people to the victim'))),
                           textAlign: TextAlign.center,
                           style: const TextStyle(
                               color: Colors.white70, fontSize: 15),

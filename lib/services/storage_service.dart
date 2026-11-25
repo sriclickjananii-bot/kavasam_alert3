@@ -3,6 +3,14 @@ import 'package:uuid/uuid.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/emergency_contact.dart';
 
+/// The place the user registered as their safe location (home / college / work).
+class RegisteredLocation {
+  final double lat;
+  final double lon;
+  final String label;
+  const RegisteredLocation(this.lat, this.lon, this.label);
+}
+
 /// Simple local persistence layer. Swap this out for a cloud-backed
 /// store later if you want contacts to sync across the user's devices.
 class StorageService {
@@ -20,6 +28,13 @@ class StorageService {
   static const _kSmsSimSubId = 'sms_sim_sub_id';
   // These three keys are ALSO read by the native Android service
   // (ResponderNet.kt reads "flutter.responder_*"), so do not rename them.
+  // Registered safe location. Saved as TEXT and read natively by ResponderNet.kt as
+  // "flutter.reg_lat" / "flutter.reg_lon" / "flutter.reg_alerts_enabled": do not rename.
+  static const _kRegLat = 'reg_lat';
+  static const _kRegLon = 'reg_lon';
+  static const _kRegLabel = 'reg_label';
+  static const _kRegAlerts = 'reg_alerts_enabled';
+  static const _kRegPromptDone = 'reg_prompt_done';
   static const _kResponderEnabled = 'responder_enabled';
   static const _kResponderId = 'responder_id';
   static const _kResponderSecret = 'responder_secret';
@@ -195,5 +210,53 @@ class StorageService {
   Future<void> setPermissionIntroSeen(bool value) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_kPermIntroSeen, value);
+  }
+
+  // ------------------------------------------------ registered safe location
+
+  Future<RegisteredLocation?> getRegisteredLocation() async {
+    final prefs = await SharedPreferences.getInstance();
+    final la = double.tryParse(prefs.getString(_kRegLat) ?? '');
+    final lo = double.tryParse(prefs.getString(_kRegLon) ?? '');
+    if (la == null || lo == null) return null;
+    return RegisteredLocation(la, lo, prefs.getString(_kRegLabel) ?? 'Home');
+  }
+
+  Future<void> setRegisteredLocation(double lat, double lon, String label) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_kRegLat, lat.toString());
+    await prefs.setString(_kRegLon, lon.toString());
+    await prefs.setString(_kRegLabel, label);
+  }
+
+  Future<void> clearRegisteredLocation() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_kRegLat);
+    await prefs.remove(_kRegLon);
+    await prefs.remove(_kRegLabel);
+    await prefs.setBool(_kRegAlerts, false);
+  }
+
+  /// Second layer: alert this phone for SOS near the registered location,
+  /// even when the phone's own location (GPS) is switched off.
+  Future<bool> getRegisteredAlerts() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(_kRegAlerts) ?? false;
+  }
+
+  Future<void> setRegisteredAlerts(bool value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_kRegAlerts, value);
+  }
+
+  /// True once the first-run "register your location" screen was completed or skipped.
+  Future<bool> getRegPromptDone() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(_kRegPromptDone) ?? false;
+  }
+
+  Future<void> setRegPromptDone(bool value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_kRegPromptDone, value);
   }
 }

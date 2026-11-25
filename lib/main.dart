@@ -95,6 +95,7 @@ void _openDeviceSos(Map<String, dynamic> m) {
         victimName: m['name'] as String?,
         distanceM: (m['distance'] as num?)?.toInt(),
         alertRef: m['ref'] as String?,
+        nearRegistered: m['atRegistered'] == true,
         preDispatched: AlertDispatchResult(
           succeededNumbers: sent,
           failedNumbers: failed,
